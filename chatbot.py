@@ -14,9 +14,21 @@ if "messages" not in st.session_state:
 if "canvas" not in st.session_state:
     st.session_state.canvas = ""
 
+st.set_page_config(layout = "wide")
+
 st.title("Chatbot")
 
-left_column, right_column = st.columns(2)
+st.html(
+    """
+    <style>
+    .stColumn {
+        height: 70vh;
+        overflow-y: auto;
+    }
+    </style>
+    """
+)
+left_column, right_column = st.columns([1,1], border=True)
 
 # Display the canvas state.
 # Handle user input.

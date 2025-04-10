@@ -2,7 +2,7 @@ import streamlit as st
 
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
-from joke_agent import graph, State
+from estimation_agent import graph, State
 
 load_dotenv()
 config = {"configurable": {"thread_id": "thread"}}

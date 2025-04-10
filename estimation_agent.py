@@ -7,12 +7,15 @@ from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.schema import SystemMessage
 from langchain_core.messages import trim_messages
 
+from langchain_core.messages import ToolMessage
+from langchain_core.tools.base import InjectedToolCallId
+from langgraph.types import Command
 from langgraph.graph import MessagesState, StateGraph
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.prebuilt import ToolNode, tools_condition
 from langgraph.checkpoint.memory import MemorySaver
 
-
+from typing_extensions import Any, Annotated
 
 # Load api keys from .env file.
 dotenv.load_dotenv()
@@ -26,12 +29,22 @@ class State(MessagesState):
 
 # Set up the finest jokes of all time.
 @tool
-def store_markdown(markdownToSave: str):
+def store_markdown(tool_call_id: Annotated[str, InjectedToolCallId], markdownToSave: str):
     """Store markdown in the canvas"""
     print(f"Storing markdown: {markdownToSave}")
     global canvas
     canvas = markdownToSave
-    return canvas
+    return Command(
+        update={
+            # update the state keys
+            "canvas": canvas,
+             "messages": [
+                ToolMessage(
+                    "Successfully looked up user information", tool_call_id=tool_call_id
+                )
+            ],
+        }
+    )
 
 
 tools = [store_markdown]
@@ -108,7 +121,7 @@ Your goal is to co-create a shared understanding of the technical scope and iden
         print(state["messages"])
         response = chain.invoke(state["messages"])
         print("---- thinking agent finished ----")
-        return {"messages": response}
+        return {"messages": response, "thinking_agent_output": response}
 
     return agent
 
@@ -125,11 +138,10 @@ def make_tool_agent():
     prompt_template = ChatPromptTemplate.from_messages([
         SystemMessage(content="""
             You are an assistant that uses tools to store information.
-            You can use the store_canvas tool to store information.
+            You can use the store_markdown tool to store information.
             You parse messages provided to you. 
-            You look for mark down sections and store them in the canvas.    
-
-            Once you save all the information, you return the original message.       
+            You look for markdown code blocks and store them using the store_markdown tool.    
+            You respond with a simple success message.       
             """),
         MessagesPlaceholder(variable_name="messages")])
 
@@ -143,7 +155,7 @@ def make_tool_agent():
         print(response)
         print("---- tool agent finished ----")
         global canvas
-        return {"canvas": canvas}
+        return {"messages": response, "canvas": canvas}
 
     return agent
 
@@ -153,8 +165,8 @@ graph = StateGraph(state_schema=State) \
     .add_node("tool-agent", make_tool_agent()) \
     .add_node("tools", ToolNode(tools)) \
     .add_conditional_edges("tool-agent", tools_condition) \
-    .add_node("thinking-agent", make_thinking_agent()) \
     .add_edge("tools", "tool-agent") \
+    .add_node("thinking-agent", make_thinking_agent()) \
     .add_edge("thinking-agent", "tool-agent") \
     .set_entry_point("thinking-agent") \
     .compile(checkpointer=InMemorySaver())

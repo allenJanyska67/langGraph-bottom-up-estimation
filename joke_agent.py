@@ -26,12 +26,11 @@ class State(MessagesState):
 
 # Set up the finest jokes of all time.
 @tool
-def store_markdown(state: State, markdown: str):
+def store_markdown(markdownToSave: str):
     """Store markdown in the canvas"""
-    print("provided state", state)
-    print(f"Storing markdown: {markdown}")
+    print(f"Storing markdown: {markdownToSave}")
     global canvas
-    canvas = markdown
+    canvas = markdownToSave
     return canvas
 
 
@@ -109,8 +108,7 @@ Your goal is to co-create a shared understanding of the technical scope and iden
         print(state["messages"])
         response = chain.invoke(state["messages"])
         print("---- thinking agent finished ----")
-        print(response)
-        return {"messages": response, "canvas": state["canvas"]}
+        return {"messages": response}
 
     return agent
 
@@ -139,7 +137,7 @@ def make_tool_agent():
 
     def agent(state: State):
         print("---- tool agent ----")
-        print(state["messages"])
+        print(state)
         response = chain.invoke(state["messages"])
         print("state as tool agent acts")
         print(response)
@@ -152,15 +150,14 @@ def make_tool_agent():
 # A basic tool using agent setup.
 # This setup is almost identical to LangGraph's create_react_agent function.
 graph = StateGraph(state_schema=State) \
-    .set_entry_point("tool-agent") \
     .add_node("tool-agent", make_tool_agent()) \
     .add_node("tools", ToolNode(tools)) \
     .add_conditional_edges("tool-agent", tools_condition) \
+    .add_node("thinking-agent", make_thinking_agent()) \
     .add_edge("tools", "tool-agent") \
+    .add_edge("thinking-agent", "tool-agent") \
+    .set_entry_point("thinking-agent") \
     .compile(checkpointer=InMemorySaver())
-    # .add_node("thinking-agent", make_thinking_agent()) \
-    # .set_entry_point("thinking-agent") \
-    # .add_edge("thinking-agent", "tool-agent") \
 
 
 print(graph.get_graph().draw_mermaid())

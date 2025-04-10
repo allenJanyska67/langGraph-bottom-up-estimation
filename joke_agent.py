@@ -143,7 +143,7 @@ def make_tool_agent():
         print(response)
         print("---- tool agent finished ----")
         global canvas
-        return {"messages": response, "canvas": canvas}
+        return {"canvas": canvas}
 
     return agent
 
